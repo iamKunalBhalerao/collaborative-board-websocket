@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WebSocket Board Client</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family: Arial, sans-serif;
+                background: #f4f4f4;
+                padding: 20px;
+            }
+            h1,
+            h2 {
+                margin-bottom: 10px;
+            }
+            .container {
+                max-width: 900px;
+                margin: auto;
+            }
+            .section {
+                background: #fff;
+                padding: 15px;
+                margin-bottom: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            }
+            input,
+            button,
+            select {
+                padding: 8px;
+                margin: 5px 0;
+                width: 100%;
+            }
+            button {
+                background: #007bff;
+                color: white;
+                border: none;
+                cursor: pointer;
+                border-radius: 4px;
+            }
+            button:hover {
+                background: #0056b3;
+            }
+            #log {
+                height: 300px;
+                overflow-y: auto;
+                background: #222;
+                color: #0f0;
+                padding: 10px;
+                border-radius: 4px;
+                font-family: monospace;
+                font-size: 13px;
+            }
+            .object-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 5px;
+                border-bottom: 1px solid #ddd;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>WebSocket Board Client</h1>
+
+            <div class="section">
+                <h2>Connection</h2>
+                <input
+                    id="wsUrl"
+                    placeholder="ws://localhost:8080"
+                    value="ws://localhost:8080"
+                />
+                <button onclick="connect()">Connect</button>
+                <button onclick="disconnect()">Disconnect</button>
+                <div id="status">Disconnected</div>
+            </div>
+
+            <div class="section">
+                <h2>Identify</h2>
+                <input id="userId" placeholder="User ID" value="user1" />
+                <button onclick="identify()">IDENTIFY</button>
+            </div>
+
+            <div class="section">
+                <h2>Join Board</h2>
+                <input id="boardId" placeholder="Board ID" value="board1" />
+                <button onclick="joinBoard()">JOIN_BOARD</button>
+            </div>
+
+            <div class="section">
+                <h2>Create Object</h2>
+                <input id="objId" placeholder="Object ID" value="obj1" />
+                <input id="objX" type="number" placeholder="X" value="10" />
+                <input id="objY" type="number" placeholder="Y" value="20" />
+                <input id="objText" placeholder="Text" value="Hello" />
+                <button onclick="createObj()">CREATE_OBJ</button>
+            </div>
+
+            <div class="section">
+                <h2>Move Object</h2>
+                <input id="moveObjId" placeholder="Object ID" value="obj1" />
+                <input id="moveX" type="number" placeholder="X" value="100" />
+                <input id="moveY" type="number" placeholder="Y" value="200" />
+                <button onclick="moveObj()">MOVE_OBJ</button>
+            </div>
+
+            <div class="section">
+                <h2>Delete Object</h2>
+                <input id="delObjId" placeholder="Object ID" value="obj1" />
+                <button onclick="deleteObj()">DELETE_OBJ</button>
+            </div>
+
+            <div class="section">
+                <h2>Log</h2>
+                <div id="log"></div>
+            </div>
+        </div>
+
+        <script>
+            let socket = null;
+            let currentUser = null;
+            let operationCounter = 0;
+
+            function log(msg) {
+                const el = document.getElementById("log");
+                const time = new Date().toLocaleTimeString();
+                el.innerHTML += `[${time}] ${msg}\n`;
+                el.scrollTop = el.scrollHeight;
+            }
+
+            function getOpId() {
+                return ++operationCounter;
+            }
+
+            function connect() {
+                const url = document.getElementById("wsUrl").value;
+                socket = new WebSocket(url);
+                socket.onopen = () => {
+                    document.getElementById("status").textContent = "Connected";
+                    log("Connected to " + url);
+                };
+                socket.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    log("RECV: " + JSON.stringify(data));
+                    if (data.type === "IDENTIFIED") currentUser = data.userId;
+                };
+                socket.onclose = () => {
+                    document.getElementById("status").textContent =
+                        "Disconnected";
+                    log("Disconnected");
+                };
+                socket.onerror = (err) => log("ERROR: " + err.message);
+            }
+
+            function disconnect() {
+                if (socket) socket.close();
+            }
+
+            function send(data) {
+                if (!socket || socket.readyState !== WebSocket.OPEN) {
+                    log("Socket not open");
+                    return;
+                }
+                socket.send(JSON.stringify(data));
+                log("SEND: " + JSON.stringify(data));
+            }
+
+            function identify() {
+                const userId = document.getElementById("userId").value;
+                send({ type: "IDENTIFY", userId });
+            }
+
+            function joinBoard() {
+                const boardId = document.getElementById("boardId").value;
+                send({ type: "JOIN_BOARD", boardId });
+            }
+
+            function createObj() {
+                const boardId = document.getElementById("boardId").value;
+                const id = document.getElementById("objId").value;
+                const x = Number(document.getElementById("objX").value);
+                const y = Number(document.getElementById("objY").value);
+                const text = document.getElementById("objText").value;
+                send({
+                    type: "CREATE_OBJ",
+                    boardId,
+                    operationId: getOpId(),
+                    object: { id, x, y, text },
+                });
+            }
+
+            function moveObj() {
+                const boardId = document.getElementById("boardId").value;
+                const objectId = document.getElementById("moveObjId").value;
+                const x = Number(document.getElementById("moveX").value);
+                const y = Number(document.getElementById("moveY").value);
+                send({
+                    type: "MOVE_OBJ",
+                    boardId,
+                    operationId: getOpId(),
+                    objectId,
+                    x,
+                    y,
+                });
+            }
+
+            function deleteObj() {
+                const boardId = document.getElementById("boardId").value;
+                const objectId = document.getElementById("delObjId").value;
+                send({
+                    type: "DELETE_OBJ",
+                    boardId,
+                    operationId: getOpId(),
+                    objectId,
+                });
+            }
+        </script>
+    </body>
+</html>

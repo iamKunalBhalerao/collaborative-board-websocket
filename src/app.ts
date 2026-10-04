@@ -19,7 +19,6 @@ const boards = new Map<string, Board>();
 const users = new Map<string, WebSocket>();
 
 wss.on("connection", (socket) => {
-  socket.send("Connected to WS backend!");
   let currentUser: string | null = null;
 
   socket.on("message", (data) => {
@@ -104,7 +103,7 @@ wss.on("connection", (socket) => {
         }
 
         if (parsedData.type === "CREATE_OBJ") {
-          const { boardId } = parsedData;
+          const { boardId, operationId } = parsedData;
           const { id, x, y, text } = parsedData.object;
 
           if (!currentUser)
@@ -144,6 +143,7 @@ wss.on("connection", (socket) => {
               client.send(
                 JSON.stringify({
                   type: "CREATE_OBJ",
+                  operationId,
                   sequenceNumber,
                   boardId,
                   object: { id, x, y, text },
@@ -155,7 +155,7 @@ wss.on("connection", (socket) => {
         }
 
         if (parsedData.type === "MOVE_OBJ") {
-          const { boardId, objectId, x, y } = parsedData;
+          const { boardId, operationId, objectId, x, y } = parsedData;
 
           if (!currentUser)
             return socket.send(
@@ -212,6 +212,7 @@ wss.on("connection", (socket) => {
               client.send(
                 JSON.stringify({
                   type: "MOVE_OBJ",
+                  operationId,
                   sequenceNumber,
                   boardId,
                   object: { objectId, x, y },
@@ -223,7 +224,7 @@ wss.on("connection", (socket) => {
         }
 
         if (parsedData.type === "DELETE_OBJ") {
-          const { boardId, objectId } = parsedData;
+          const { boardId, operationId, objectId } = parsedData;
 
           if (!currentUser)
             return socket.send(
@@ -270,6 +271,7 @@ wss.on("connection", (socket) => {
               client.send(
                 JSON.stringify({
                   type: "DELETE_OBJ",
+                  operationId,
                   sequenceNumber,
                   boardId,
                   message: "Object deleted",
