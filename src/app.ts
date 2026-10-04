@@ -280,6 +280,37 @@ wss.on("connection", (socket) => {
             }
           }
         }
+
+        if (parsedData.type === "SYNC_BOARD") {
+          const { boardId } = parsedData;
+          if (!currentUser)
+            return socket.send(
+              JSON.stringify({
+                type: "ERROR",
+                message: "User not IDENTIFIED",
+              }),
+            );
+
+          const board = boards.get(boardId);
+          if (!board)
+            return socket.send(
+              JSON.stringify({
+                type: "ERROR",
+                message: "Board not Exists!",
+              }),
+            );
+          const objects = Array.from(board.objects.values());
+
+          const sequenceNumber = ++board.sequenceNumber;
+          socket.send(
+            JSON.stringify({
+              type: "SYNC_BOARD",
+              sequenceNumber,
+              boardId,
+              objects,
+            }),
+          );
+        }
       } else
         socket.send(
           "Not received a valid JSON object: " + JSON.stringify(parsedData),
