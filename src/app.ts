@@ -12,6 +12,7 @@ type BoardObject = {
 interface Board {
   users: Set<WebSocket>;
   objects: Map<string, BoardObject>;
+  sequenceNumber: number;
 }
 
 const boards = new Map<string, Board>();
@@ -73,6 +74,7 @@ wss.on("connection", (socket) => {
             board = {
               users: new Set(),
               objects: new Map(),
+              sequenceNumber: 0,
             };
             boards.set(boardId, board);
           }
@@ -133,6 +135,8 @@ wss.on("connection", (socket) => {
             );
           }
 
+          const sequenceNumber = ++board.sequenceNumber;
+
           board.objects.set(id, { id, x, y, text });
 
           for (const client of board.users) {
@@ -140,6 +144,7 @@ wss.on("connection", (socket) => {
               client.send(
                 JSON.stringify({
                   type: "CREATE_OBJ",
+                  sequenceNumber,
                   boardId,
                   object: { id, x, y, text },
                   message: "Object created",
@@ -197,6 +202,8 @@ wss.on("connection", (socket) => {
               }),
             );
 
+          const sequenceNumber = ++board.sequenceNumber;
+
           object.x = x;
           object.y = y;
 
@@ -205,6 +212,7 @@ wss.on("connection", (socket) => {
               client.send(
                 JSON.stringify({
                   type: "MOVE_OBJ",
+                  sequenceNumber,
                   boardId,
                   object: { objectId, x, y },
                   message: "Object was moved",
@@ -253,6 +261,8 @@ wss.on("connection", (socket) => {
               }),
             );
 
+          const sequenceNumber = ++board.sequenceNumber;
+
           board.objects.delete(objectId);
 
           for (const client of board.users) {
@@ -260,6 +270,7 @@ wss.on("connection", (socket) => {
               client.send(
                 JSON.stringify({
                   type: "DELETE_OBJ",
+                  sequenceNumber,
                   boardId,
                   message: "Object deleted",
                 }),
